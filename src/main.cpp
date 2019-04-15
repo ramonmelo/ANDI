@@ -6,7 +6,6 @@
 // ╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ ╚═╝
 
 #define SD_ChipSelectPin 4
-#define BOUNCE_WITH_PROMPT_DETECTION
 
 #define ROT_SW 2
 #define ROT_DT 3
@@ -21,7 +20,8 @@
 #include <TMRpcm.h>
 #include <Encoder.h>
 #include <Adafruit_SSD1306.h>
-// #include <Bounce2.h>
+
+#include "musik.h"
 
 // MEMBERS
 
@@ -36,16 +36,7 @@ const unsigned char myBitmap[] PROGMEM = {
 	0x00, 0x33, 0x1c, 0x00, 0x00, 0x30, 0x70, 0x00, 0x00, 0x18, 0xe0, 0x00, 0x00, 0x0d, 0x80, 0x00,
 	0x00, 0x07, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-char loops[][8] = {
-	"00.wav", "01.wav", "02.wav", "03.wav", "04.wav", "05.wav", "06.wav", "07.wav", "08.wav", "09.wav",
-	"10.wav", "11.wav", "12.wav", "13.wav", "14.wav", "15.wav", "16.wav", "17.wav", "18.wav", "19.wav",
-	"20.wav", "21.wav", "22.wav", "23.wav", "24.wav", "25.wav", "26.wav", "27.wav", "28.wav", "29.wav",
-	"30.wav", "31.wav", "32.wav", "33.wav", "34.wav", "35.wav", "36.wav", "37.wav", "38.wav", "39.wav",
-	"40.wav", "41.wav", "42.wav", "43.wav", "44.wav", "45.wav", "46.wav", "47.wav", "48.wav", "49.wav",
-	"50.wav", "51.wav", "52.wav", "53.wav", "54.wav", "55.wav", "56.wav", "57.wav", "58.wav", "59.wav"};
-
 Encoder selector(ROT_DT, ROT_CLK);
-// Bounce buttonSW = Bounce();
 
 int16_t oldEncPos, encPos;
 uint8_t buttonState;
@@ -63,15 +54,13 @@ int current_instrument = 0;
 int current_beat = 0;
 unsigned long next_beat = 0;
 
+int curr_music_length = 0;
 int music_length[] = {2, 4, 8, 16, 32};
 int size_music_length = (sizeof(music_length) / sizeof(music_length[0]));
-int curr_music_length = 0;
 
 float delayTime = BASE_DELAY;
 
 TMRpcm tmrpcm;
-
-#pragma region Utils
 
 // DISPLAY
 
@@ -168,7 +157,7 @@ void initMusic()
 {
 	for (int i = 0; i < 32; i++)
 	{
-		beats[i] = random(10);
+		beats[i] = random(1, 10);
 	}
 }
 
@@ -178,7 +167,10 @@ void playMusic()
 	{
 		int musik = beats[current_beat] + current_instrument;
 
-		tmrpcm.play(loops[musik]);
+		char wavFile[8];
+		strcpy_P(wavFile, wav_table[musik]);
+
+		tmrpcm.play(wavFile);
 
 		current_beat++;
 		current_beat = current_beat % music_length[curr_music_length];
@@ -220,11 +212,14 @@ int readSelector(int curr, int max)
 	return curr < 0 ? 0 : curr > max ? max : curr;
 }
 
-#pragma endregion
-
 void setup()
 {
 	Serial.begin(9600);
+	while (!Serial)
+	{
+	}
+
+	Serial.println("Starting");
 
 	if (!SD.begin(SD_ChipSelectPin))
 	{ // see if the card is present and can be initialized:
@@ -235,19 +230,16 @@ void setup()
 	Serial.println("Ready");
 
 	// Init control
-	pinMode(ROT_SW, INPUT_PULLUP);
-	attachInterrupt(digitalPinToInterrupt(ROT_SW), changeSelect, CHANGE);
-
-	// buttonSW.attach(ROT_SW, INPUT_PULLUP);
-	// buttonSW.interval(50); // interval in ms
-
-	// Init display
-	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+	// pinMode(ROT_SW, INPUT_PULLUP);
+	// attachInterrupt(digitalPinToInterrupt(ROT_SW), changeSelect, CHANGE);
 
 	// Init music
 	tmrpcm.speakerPin = 9;
 	randomSeed(analogRead(A0));
 	initMusic();
+
+	// Init display
+	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 }
 
 void loop()
@@ -257,21 +249,21 @@ void loop()
 
 	// Control
 	// curr_item = readSelector(curr_item, MAX_ITEMS_IDX);
-	// Serial.println(curr_item);
+	// // Serial.println(curr_item);
 
-	if (active)
-	{
-		switch (curr_item)
-		{
-		case 0:
-			curr_music_length = readSelector(curr_music_length, size_music_length);
-			break;
-		}
-	}
-	else
-	{
-		curr_item = readSelector(curr_item, MAX_ITEMS_IDX);
-	}
+	// if (active)
+	// {
+	// 	switch (curr_item)
+	// 	{
+	// 	case 0:
+	// 		curr_music_length = readSelector(curr_music_length, size_music_length);
+	// 		break;
+	// 	}
+	// }
+	// else
+	// {
+	// 	curr_item = readSelector(curr_item, MAX_ITEMS_IDX);
+	// }
 
 	// Read random initlizer
 	// int inputValue = digitalRead(INPUT_BUTTON);
